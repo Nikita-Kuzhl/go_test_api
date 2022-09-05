@@ -2,6 +2,7 @@ package service
 
 import (
 	"crypto/sha1"
+	"errors"
 	"fmt"
 	"time"
 
@@ -11,9 +12,9 @@ import (
 )
 
 const (
-	salt = "asldk3m24mkllgm13mormo2fmeomdowmav23mlfwe"
-	signingKey= "kasdjkl31kjd3k1lcm^&£"
-	tokenTTL = 12 * time.Hour
+	salt       = "asldk3m24mkllgm13mormo2fmeomdowmav23mlfwe"
+	signingKey = "kasdjkl31kjd3k1lcm^&£"
+	tokenTTL   = 12 * time.Hour
 )
 
 type tokenClaims struct {
@@ -29,27 +30,50 @@ func NewAuthService(repo repository.Authorization) *AuthService {
 	return &AuthService{repo: repo}
 }
 
-
-func (s *AuthService) CreateUser(user todo.User) (int,error) {
+func (s *AuthService) CreateUser(user todo.User) (int, error) {
 	user.Password = generatePasswordHash(user.Password)
 	return s.repo.CreateUser(user)
 }
 
-func  generatePasswordHash(password string) string {
-	hash:= sha1.New()
+func generatePasswordHash(password string) string {
+	hash := sha1.New()
 	hash.Write([]byte(password))
 	return fmt.Sprintf("%x", hash.Sum([]byte(salt)))
 }
-func (s*AuthService) GenerateToken(login,password string) (string,error){
-	user,err:= s.repo.GetUser(login,generatePasswordHash(password))
-	if err!=nil{
-		return "",err
+
+func (s *AuthService) ParseToken(accessToken string) (int, error) {
+	token, err := jwt.ParseWithClaims(accessToken, &tokenClaims{}, func(token *jwt.Token) (interface{}, error) {
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, errors.New("invalid signing method")
+		}
+
+		return []byte(signingKey), nil
+	})
+	if err != nil {
+		return 0, err
 	}
-	token:=jwt.NewWithClaims(jwt.SigningMethodES256,&tokenClaims{
+
+	claims, ok := token.Claims.(*tokenClaims)
+	if !ok {
+		return 0, errors.New("token claims are not of type *tokenClaims")
+	}
+
+	return claims.UserId, nil
+}
+
+func (s *AuthService) GenerateToken(login, password string) (string, error) {
+	user, err := s.repo.GetUser(login, generatePasswordHash(password))
+	if err != nil {
+		return "", err
+	}
+
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, &tokenClaims{
 		jwt.StandardClaims{
 			ExpiresAt: time.Now().Add(tokenTTL).Unix(),
-			IssuedAt: time.Now().Unix(),
-		} ,user.Id,
+			IssuedAt:  time.Now().Unix(),
+		},
+		user.Id,
 	})
+
 	return token.SignedString([]byte(signingKey))
 }

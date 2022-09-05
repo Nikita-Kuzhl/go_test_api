@@ -7,29 +7,31 @@ import (
 )
 
 type Config struct {
-	Host string
-	Port string
+	Host     string
+	Port     string
 	Username string
 	Password string
-	DBName string
-	SSLMode string
+	DBName   string
+	SSLMode  string
 }
+
 const (
-	userTable = "users"
-	todoListTable = "todo_lists"
-	usersListsTable = "users__lists"
-	todoItemsTable = "todo_items"
+	userTable       = "users"
+	todoListTable   = "todo_lists"
+	usersListsTable = "users_lists"
+	todoItemsTable  = "todo_items"
 	listsItemsTable = "lists_items"
 )
-func NewPostgresDB(cfg Config) (*sqlx.DB,error){
-	db,err := sqlx.Open("postgres",fmt.Sprintf("host=%s port=%s user=%s dbname=%s password=%s sslmode=%s",
-	cfg.Host,cfg.Port,cfg.Username,cfg.DBName,cfg.Password,cfg.SSLMode))
-	if err!=nil{
-		return nil,err
+
+func NewPostgresDB(cfg Config) (*sqlx.DB, error) {
+	db, err := sqlx.Open("postgres", fmt.Sprintf("host=%s port=%s user=%s dbname=%s password=%s sslmode=%s",
+		cfg.Host, cfg.Port, cfg.Username, cfg.DBName, cfg.Password, cfg.SSLMode))
+	if err != nil {
+		return nil, err
 	}
 	err = db.Ping()
-	if err!=nil {
-		return nil,err
+	if err != nil {
+		return nil, err
 	}
-	return db,nil
+	return db, nil
 }
